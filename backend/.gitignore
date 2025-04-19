@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 node_modules/
 !backend/requirements.txt
+documents/
+scraper.log
+dropdown_mappings.json
