@@ -104,6 +104,18 @@ class LandRecordImageProcessor:
             
         with open(image_path, "rb") as image_file:
             return base64.b64encode(image_file.read()).decode('utf-8')
+            
+    def encode_image_bytes(self, image_bytes: bytes) -> str:
+        """
+        Encode image bytes to base64 for API submission
+        
+        Args:
+            image_bytes: Raw image bytes
+            
+        Returns:
+            Base64 encoded string of the image
+        """
+        return base64.b64encode(image_bytes).decode('utf-8')
     
     def process_image(self, image_path: str) -> Dict[str, Any]:
         """
@@ -118,6 +130,44 @@ class LandRecordImageProcessor:
         try:
             # Encode the image
             base64_image = self.encode_image(image_path)
+            
+            # Process the image using the common method
+            return self._process_image_with_base64(base64_image)
+        except Exception as e:
+            logger.error(f"Error processing image {image_path}: {str(e)}")
+            raise
+            
+    def process_image_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
+        """
+        Process image bytes to extract land record details
+        
+        Args:
+            image_bytes: Raw image bytes
+            
+        Returns:
+            Dictionary containing extracted information
+        """
+        try:
+            # Encode the image
+            base64_image = self.encode_image_bytes(image_bytes)
+            
+            # Process the image using the common method
+            return self._process_image_with_base64(base64_image)
+        except Exception as e:
+            logger.error(f"Error processing image bytes: {str(e)}")
+            raise
+            
+    def _process_image_with_base64(self, base64_image: str) -> Dict[str, Any]:
+        """
+        Process a base64 encoded image to extract land record details
+        
+        Args:
+            base64_image: Base64 encoded image
+            
+        Returns:
+            Dictionary containing extracted information
+        """
+        try:
             
             # Prepare the prompt for OpenAI
             prompt = f"""
@@ -161,7 +211,7 @@ class LandRecordImageProcessor:
             """
             
             # Call OpenAI API with vision capabilities
-            logger.info(f"Sending image to OpenAI for analysis: {image_path}")
+            logger.info(f"Sending image to OpenAI for analysis")
             response = self.client.chat.completions.create(
                 model="gpt-4o",  # Use the current vision-capable model
                 messages=[
@@ -192,7 +242,7 @@ class LandRecordImageProcessor:
             return result
             
         except Exception as e:
-            logger.error(f"Error processing image {image_path}: {str(e)}")
+            logger.error(f"Error processing image with base64: {str(e)}")
             raise
     
     def _parse_response(self, response_text: str) -> Dict[str, Any]:

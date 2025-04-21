@@ -1,6 +1,12 @@
 django
 djangorestframework
 psycopg2-binary
-python-decouple
 playwright
 openai
+uvicorn
+python-multipart
+pydantic
+python-decouple
+python-dotenv
+pillow
+asgiref

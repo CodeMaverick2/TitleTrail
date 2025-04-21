@@ -30,7 +30,7 @@ class PropertyDetails(models.Model):
         return f"Property {self.id}: {self.survey_number} - {self.village}, {self.district}"
     
     class Meta:
-        app_label = 'titletrail'
+        app_label = 'titletrail'  # Explicitly set the app label
         db_table = 'property_details'
         verbose_name = 'Property Detail'
         verbose_name_plural = 'Property Details'
@@ -65,7 +65,7 @@ class PropertyImage(models.Model):
         return f"Image {self.id} for Property {self.property.id}"
     
     class Meta:
-        app_label = 'titletrail'  
+        app_label = 'titletrail'  # Explicitly set the app label
         db_table = 'property_images'
         verbose_name = 'Property Image'
         verbose_name_plural = 'Property Images'
