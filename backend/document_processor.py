@@ -1,270 +1,208 @@
 import os
-import re
 import time
-import json
-import logging
 import base64
-from typing import Dict, List, Tuple, Optional
-from datetime import datetime
+import logging
+import re
+from typing import Dict, List, Tuple, Optional, Any, Callable
 from playwright.sync_api import Page, TimeoutError
+from datetime import datetime
 
-logger = logging.getLogger("RTCScraper")
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("DocumentProcessor")
 
 class DocumentProcessor:
     """
-    Handles document retrieval, processing and saving
+    Utility class to process and save documents from the land records website
     """
     
     def __init__(self):
-        # Mapping of fiscal years to period text patterns
-        self.fiscal_year_patterns = {
-            "2012-13": ["2012-2013", "2012-13"],
-            "2013-14": ["2013-2014", "2013-14"],
-            "2014-15": ["2014-2015", "2014-15"],
-            "2015-16": ["2015-2016", "2015-16"],
-            "2016-17": ["2016-2017", "2016-17"],
-            "2017-18": ["2017-2018", "2017-18"],
-            "2018-19": ["2018-2019", "2018-19"],
-            "2019-20": ["2019-2020", "2019-20"],
-            "2020-21": ["2020-2021", "2020-21"]
-        }
+        # Create documents directory if it doesn't exist
+        self.documents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "documents")
+        os.makedirs(self.documents_dir, exist_ok=True)
     
-    def get_values_for_year_period(self, year_period: str, 
-                                  period_mapping: Dict[str, str],
-                                  year_mapping: Dict[str, str],
-                                  period_to_year_mapping: Dict[str, Dict[str, str]]) -> Tuple[str, str]:
+    def get_values_for_year_period(
+        self, 
+        year_period: str, 
+        period_mapping: Dict[str, str],
+        year_mapping: Dict[str, str],
+        period_to_year_mapping: Dict[str, Dict[str, str]]
+    ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Get the correct period and year dropdown values for a given year period
+        Find the appropriate period and year dropdown values for a given year period
         
         Args:
-            year_period: The fiscal year period (e.g., "2012-13")
-            period_mapping: Mapping of period text to value
-            year_mapping: Mapping of year text to value
-            period_to_year_mapping: Mapping of period values to available year options
+            year_period: The year period string (e.g., "2018-19")
+            period_mapping: Dictionary mapping period text to dropdown values
+            year_mapping: Dictionary mapping year text to dropdown values
+            period_to_year_mapping: Dictionary mapping period values to available year values
             
         Returns:
-            Tuple of (period_value, year_value)
+            Tuple of (period_value, year_value) or (None, None) if not found
         """
-        # Look for the fiscal year pattern in period text
-        patterns = self.fiscal_year_patterns.get(year_period, [year_period])
-        
-        # First look for direct matches in period texts
-        for pattern in patterns:
-            # Try to find periods that contain our pattern
-            matching_periods = {}
-            for period_text, period_value in period_mapping.items():
-                if period_text == "Select Period":
-                    continue
-                    
-                if pattern in period_text:
-                    matching_periods[period_text] = period_value
-            
-            # Process matching periods
-            for period_text, period_value in matching_periods.items():
-                # Found a period that contains our year pattern
-                if period_value in period_to_year_mapping:
-                    years = period_to_year_mapping[period_value]
-                    if years:
-                        # Look for the best year match
-                        best_year_value = None
-                        for year_text, year_val in years.items():
-                            # Skip "Select Year" option
-                            if year_text == "Select Year":
-                                continue
-                                
-                            # Look for specific matching patterns in year text
-                            if (pattern in year_text) or (year_period in year_text):
-                                best_year_value = year_val
-                                logger.info(f"Pattern match found for {year_period}: Period={period_text}, Year={year_text}")
-                                return period_value, best_year_value
-                        
-                        # If no specific match, use the first available year
-                        filtered_years = {k: v for k, v in years.items() if k != "Select Year"}
-                        if filtered_years:
-                            first_year_text = next(iter(filtered_years.keys()))
-                            first_year = filtered_years[first_year_text]
-                            logger.info(f"Period match found for {year_period}, using first available year: Period={period_text}, Year={first_year_text}")
-                            return period_value, first_year
-        
-        # If no direct matches, try the more general period that likely contains all years
-        general_periods = ["2001-08-25 00:00:00 To 2020-03-10 17:17:00"]
-        for period_text in general_periods:
-            if period_text in period_mapping:
-                period_value = period_mapping[period_text]
-                if period_value in period_to_year_mapping:
-                    years = period_to_year_mapping[period_value]
-                    
-                    # Try to find a year that matches our fiscal year
-                    for year_text, year_val in years.items():
-                        if year_text == "Select Year":
-                            continue
-                            
-                        if any(pattern in year_text for pattern in patterns):
-                            logger.info(f"Found year match in general period for {year_period}: Period={period_text}, Year={year_text}")
-                            return period_value, year_val
-        
-        # Final fallback - get any non-default period and year
-        logger.warning(f"Could not find specific match for {year_period}, using fallback values")
-        for period_value, years in period_to_year_mapping.items():
-            if years and period_value != "0":
-                filtered_years = {k: v for k, v in years.items() if k != "Select Year" and v != "0"}
-                if filtered_years:
-                    first_year_text = next(iter(filtered_years.keys()))
-                    first_year_val = filtered_years[first_year_text]
-                    period_text = next((k for k, v in period_mapping.items() if v == period_value), "Unknown")
-                    logger.info(f"Using fallback values for {year_period}: Period={period_text}, Year={first_year_text}")
-                    return period_value, first_year_val
-        
-        # Absolute last resort: use hard-coded values known to work
-        logger.warning(f"No valid dropdown values found for {year_period}. Using hardcoded values.")
-        return "15-164943", "113"  # Values known to work from example
-    
-    def get_document_for_period(self, page: Page, period_name: str, property_details: Dict, 
-                              period_value: str, year_value: str):
-        """
-        Get document for a specific period using direct values
-        
-        Args:
-            page: The Playwright page object
-            period_name: The name of the period (for logging)
-            property_details: Dictionary of property details
-            period_value: The value to select in the period dropdown
-            year_value: The value to select in the year dropdown
-            
-        Returns:
-            True if document was successfully retrieved, False otherwise
-        """
-        from dropdown_utils import DropdownHandler
-        
         try:
-            logger.info(f"Processing period: {period_name}, using period_value={period_value}, year_value={year_value}")
+            # First, try to find an exact match in the year mapping
+            if year_period in year_mapping:
+                # Find which period this year belongs to
+                for period_value, years in period_to_year_mapping.items():
+                    if year_period in years:
+                        return period_value, year_mapping[year_period]
             
-            # Wait for period dropdown to be enabled
-            DropdownHandler.wait_for_enabled(page, "#ctl00_MainContent_ddlOPeriod")
+            # If no exact match, try to find a period that contains this year
+            for period_text, period_value in period_mapping.items():
+                # Check if the period text contains our year period
+                if year_period in period_text:
+                    # Find the corresponding year value
+                    years = period_to_year_mapping.get(period_value, {})
+                    for year_text, year_value in years.items():
+                        if year_period in year_text:
+                            return period_value, year_value
             
-            # Select period and wait for year dropdown to update
-            page.locator("#ctl00_MainContent_ddlOPeriod").select_option(period_value)
-            page.wait_for_load_state("networkidle")
-            time.sleep(1)  # Wait for the year dropdown to update
+            # If still no match, try to parse the year period and find the closest match
+            start_year = year_period.split('-')[0]
+            for period_text, period_value in period_mapping.items():
+                if start_year in period_text:
+                    # Find the corresponding year value
+                    years = period_to_year_mapping.get(period_value, {})
+                    for year_text, year_value in years.items():
+                        if start_year in year_text:
+                            return period_value, year_value
             
-            # Wait for year dropdown to be enabled
-            DropdownHandler.wait_for_enabled(page, "#ctl00_MainContent_ddlOYear")
+            # No match found
+            logger.warning(f"Could not find dropdown values for year period {year_period}")
+            return None, None
             
-            # Select year
-            page.locator("#ctl00_MainContent_ddlOYear").select_option(year_value)
+        except Exception as e:
+            logger.error(f"Error finding values for year period {year_period}: {str(e)}")
+            return None, None
+    
+    def get_document_for_period(
+        self, 
+        page: Page, 
+        year_period: str, 
+        property_details: Dict[str, Any],
+        period_value: str,
+        year_value: str,
+        image_callback: Optional[Callable] = None
+    ):
+        """
+        Get and save the document for a specific period and year
+        
+        Args:
+            page: Playwright page object
+            year_period: The year period string (e.g., "2018-19")
+            property_details: Dictionary containing property details
+            period_value: The period dropdown value to select
+            year_value: The year dropdown value to select
+            image_callback: Optional callback function to handle the image data
+        """
+        try:
+            # Select the period
+            period_selector = "#ctl00_MainContent_ddlOPeriod"
+            page.locator(period_selector).select_option(period_value)
+            time.sleep(1)  # Wait for year dropdown to update
             
-            # Click Fetch details button
-            logger.info("Clicking 'Fetch details' button")
-            page.get_by_role("button", name="Fetch details").click()
+            # Select the year
+            year_selector = "#ctl00_MainContent_ddlOYear"
+            page.locator(year_selector).select_option(year_value)
             
-            # Wait for the document to load
+            # Click the "Fetch details" button first
             try:
-                logger.info("Waiting for document to load...")
+                page.get_by_role("button", name="Fetch details").click()
+                logger.info(f"Clicked 'Fetch details' button for {year_period}")
+                time.sleep(2)  # Wait for the details to load
+            except Exception as e:
+                logger.warning(f"Could not click 'Fetch details' button: {str(e)}")
+            
+            # Open the document in a new tab by clicking the "View" button
+            try:
+                with page.expect_popup() as page1_info:
+                    page.get_by_role("button", name="View").click()
+                    logger.info(f"Clicked 'View' button for {year_period}")
                 
-                # Wait for network activity to settle and check for multiple possible indicators
-                # that the document has loaded successfully
-                page.wait_for_load_state("networkidle", timeout=10000)
+                # Get the new page/tab
+                document_page = page1_info.value
                 
-                # Take a screenshot immediately after network activity settles
-                screenshot_path = f"document_{period_name.replace('-', '_')}.png"
-                page.screenshot(path=screenshot_path)
-                logger.info(f"Document screenshot saved to {screenshot_path}")
+                # Wait for the page to load
+                document_page.wait_for_load_state("networkidle", timeout=30000)
                 
-                # Check if any content has loaded by looking for common elements
-                # that might indicate success or failure
-                content_loaded = False
+                # Take a screenshot of the document
+                filename = self._generate_filename(property_details, year_period)
+                filepath = os.path.join(self.documents_dir, filename)
                 
-                # Check for various indicators that content has loaded
-                selectors_to_check = [
-                    "#ctl00_MainContent_btnSave",  # Original selector
-                    "table.gridview",              # Common table class
-                    "#ctl00_MainContent_gvDetails",# Possible grid view ID
-                    "div.document-content",        # Possible content container
-                    "#ctl00_MainContent_lblMessage"# Message element (could indicate error too)
-                ]
+                # Take the screenshot and save it
+                document_page.screenshot(path=filepath)
+                logger.info(f"Saved screenshot for {year_period} to {filepath}")
                 
-                for selector in selectors_to_check:
-                    if page.locator(selector).count() > 0:
-                        logger.info(f"Document content detected via selector: {selector}")
-                        content_loaded = True
-                        break
+                # Create metadata for the image
+                metadata = {
+                    "year_period": year_period,
+                    "survey_number": property_details.get("survey_number", ""),
+                    "surnoc": property_details.get("surnoc", ""),
+                    "hissa": property_details.get("hissa", ""),
+                    "village": property_details.get("village", {}).get("name", ""),
+                    "hobli": property_details.get("hobli", {}).get("name", ""),
+                    "taluk": property_details.get("taluk", {}).get("name", ""),
+                    "district": property_details.get("district", {}).get("name", ""),
+                    "timestamp": datetime.now().isoformat(),
+                    "url": document_page.url
+                }
                 
-                # If no specific selectors found, check if page has any tables or data
-                if not content_loaded:
-                    tables_count = page.locator("table").count()
-                    if tables_count > 2:  # More than just navigation tables
-                        logger.info(f"Document appears to have loaded: found {tables_count} tables")
-                        content_loaded = True
+                # If a callback is provided, read the file and call the callback
+                if image_callback:
+                    with open(filepath, "rb") as f:
+                        image_data = f.read()
+                    image_callback(image_data, metadata)
                 
-                # Consider the document loaded if we've detected content
-                if content_loaded:
-                    logger.info("Document loaded successfully")
-                    # Try to save the document
-                    self._save_document(page, period_name, property_details)
-                    return True
-                else:
-                    logger.warning(f"No document content detected for period {period_name}")
-                    # Take another screenshot in case content appeared after the first one
-                    error_file = f"error_{period_name.replace('-', '_')}.png"
-                    page.screenshot(path=error_file)
-                    logger.info(f"Error screenshot saved to {error_file}")
-                    return False
+                # Close the document page/tab
+                document_page.close()
                 
             except TimeoutError:
-                logger.warning(f"Timeout waiting for document to load for period {period_name}")
-                # Take a screenshot of the error state
-                error_file = f"error_{period_name.replace('-', '_')}.png"
-                page.screenshot(path=error_file)
-                logger.info(f"Error screenshot saved to {error_file}")
-                return False
-                
+                logger.warning(f"Timeout waiting for document for {year_period}")
+            except Exception as e:
+                logger.error(f"Error capturing document for {year_period}: {str(e)}")
+            
+            # Wait for the main page to be active again
+            page.wait_for_selector(period_selector, state="visible", timeout=10000)
+            
         except Exception as e:
-            logger.error(f"Error getting document for period {period_name}: {str(e)}")
-            # Take a screenshot of the error state
-            error_file = f"error_{period_name.replace('-', '_')}.png"
-            page.screenshot(path=error_file)
-            logger.info(f"Error screenshot saved to {error_file}")
-            return False
+            logger.error(f"Error getting document for {year_period}: {str(e)}")
+            # Try to go back to the search page if needed
+            try:
+                # Check if we need to go back
+                if page.locator(period_selector).count() == 0:
+                    page.go_back()
+                    page.wait_for_selector(period_selector, state="visible", timeout=10000)
+            except:
+                pass
     
-    def _save_document(self, page: Page, period_name: str, property_details: Dict):
+    def _generate_filename(self, property_details: Dict[str, Any], year_period: str) -> str:
         """
-        Save the document data
+        Generate a filename for the document based on property details and year period
         
         Args:
-            page: The Playwright page object
-            period_name: The name of the period
-            property_details: Dictionary of property details
+            property_details: Dictionary containing property details
+            year_period: The year period string (e.g., "2018-19")
+            
+        Returns:
+            A filename string
         """
-        try:
-            # Extract document data
-            logger.info(f"Extracting document data for period {period_name}")
-            
-            # Create a directory for the documents if it doesn't exist
-            os.makedirs("documents", exist_ok=True)
-            
-            # Create a unique filename based on property details and period
-            district = property_details["district"]["name"].replace(" ", "_")
-            taluk = property_details["taluk"]["name"].replace(" ", "_")
-            village = property_details["village"]["name"].replace(" ", "_")
-            survey = property_details["survey_number"]
-            hissa = property_details["hissa"]
-            
-            filename = f"documents/{district}_{taluk}_{village}_S{survey}_H{hissa}_{period_name.replace('-', '_')}.json"
-            
-            # Extract data from the page
-            data = {
-                "property": property_details,
-                "period": period_name,
-                "extracted_date": datetime.now().isoformat(),
-                "document_data": {}  # This would be filled with actual data from the page
-            }
-            
-            # Save the data to a file
-            with open(filename, "w") as f:
-                json.dump(data, f, indent=2)
-                
-            logger.info(f"Document data saved to {filename}")
-            
-        except Exception as e:
-            logger.error(f"Error saving document for period {period_name}: {str(e)}")
-            raise
+        # Clean up values for filename
+        survey = property_details.get("survey_number", "").replace("/", "-")
+        surnoc = property_details.get("surnoc", "").replace("*", "star")
+        hissa = property_details.get("hissa", "").replace("/", "-")
+        village = property_details.get("village", {}).get("name", "").replace(" ", "_")
+        
+        # Generate a timestamp
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        
+        # Create the filename - using .png extension for screenshots
+        filename = f"RTC_{village}_{survey}_{surnoc}_{hissa}_{year_period}_{timestamp}.png"
+        
+        # Remove any invalid characters
+        filename = re.sub(r'[\\/*?:"<>|]', "_", filename)
+        
+        return filename

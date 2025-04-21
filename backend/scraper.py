@@ -69,19 +69,34 @@ class RTCScraper:
         self.dropdown_handler = DropdownHandler()
         self.document_processor = DocumentProcessor()
 
-    def run(self, property_details=None, headless=False):
-        """Main method to run the scraper"""
+    def run(self, property_details=None, headless=False, image_callback=None):
+        """
+        Main method to run the scraper
+        
+        Args:
+            property_details: Dictionary containing property details
+            headless: Whether to run the browser in headless mode
+            image_callback: Optional callback function to handle scraped images
+        """
         if not property_details:
             property_details = self.default_property
             
         with sync_playwright() as playwright:
             try:
-                self._run_workflow(playwright, property_details, headless)
+                self._run_workflow(playwright, property_details, headless, image_callback)
             except Exception as e:
                 logger.error(f"Scraping failed: {str(e)}")
 
-    def _run_workflow(self, playwright: Playwright, property_details: Dict, headless: bool):
-        """Run the scraper workflow"""
+    def _run_workflow(self, playwright: Playwright, property_details: Dict, headless: bool, image_callback=None):
+        """
+        Run the scraper workflow
+        
+        Args:
+            playwright: Playwright instance
+            property_details: Dictionary containing property details
+            headless: Whether to run the browser in headless mode
+            image_callback: Optional callback function to handle scraped images
+        """
         browser = playwright.chromium.launch(headless=headless)
         context = browser.new_context()
         try:
@@ -114,7 +129,8 @@ class RTCScraper:
                             year_period, 
                             property_details, 
                             period_value, 
-                            year_value
+                            year_value,
+                            image_callback
                         )
                     else:
                         logger.warning(f"Could not determine dropdown values for year period {year_period}")
@@ -280,5 +296,5 @@ class RTCScraper:
 
 # Main entry point
 if __name__ == "__main__":
-    scraper = RTCScraper()
-    scraper.run(headless=False)
+    scrapper = RTCScraper()
+    scrapper.run(headless=false)
