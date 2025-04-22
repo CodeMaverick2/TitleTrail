@@ -34,31 +34,26 @@ pip install -r requirements.txt
 Ensure the `.env` file is in the root directory (`/home/tejas/TitleTrail`) and contains the following:
 ```env
 DEBUG=True
-DATABASE_NAME=your-local-database-name
-DATABASE_USER=your-local-database-user
-DATABASE_PASSWORD=your-local-database-password
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-OPENAI_API_KEY=your-openai-api-key
+DB_NAME=your-local-database-name
+DB_USER=your-local-database-user
+DB_PASSWORD=your-local-database-password
+DB_HOST=localhost
+DB_PORT=5432
+OPENAI_API_KEY=your-api-key-here
 ```
 
-### 4. Run Migrations
-Apply the database migrations to set up the schema:
+### 4. Initialize the Database
+Run the database initialization script to create the necessary tables:
 ```bash
-python manage.py makemigrations
-python manage.py migrate
+cd backend
+python init_db.py
 ```
 
-### 5. Create a Superuser (Optional)
-To access the Django admin panel, create a superuser:
+### 5. Run the Application
+Start the application:
 ```bash
-python manage.py createsuperuser
-```
-
-### 6. Run the Development Server
-Start the Django development server:
-```bash
-python manage.py runserver
+cd backend
+python app.py
 ```
 
 Access the application at `http://127.0.0.1:8000`.
