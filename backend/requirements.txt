@@ -3,10 +3,6 @@ djangorestframework
 psycopg2-binary
 playwright
 openai
-uvicorn
-python-multipart
-pydantic
-python-decouple
 python-dotenv
 pillow
 asgiref

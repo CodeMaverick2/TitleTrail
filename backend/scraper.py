@@ -69,7 +69,7 @@ class RTCScraper:
         self.dropdown_handler = DropdownHandler()
         self.document_processor = DocumentProcessor()
 
-    def run(self, property_details=None, headless=False, image_callback=None):
+    def run(self, property_details=None, headless=False, image_callback=None, clear_documents=True):
         """
         Main method to run the scraper
         
@@ -77,9 +77,15 @@ class RTCScraper:
             property_details: Dictionary containing property details
             headless: Whether to run the browser in headless mode
             image_callback: Optional callback function to handle scraped images
+            clear_documents: Whether to clear documents folder before scraping (default: True)
         """
         if not property_details:
             property_details = self.default_property
+        
+        # Clear the documents folder if requested
+        if clear_documents:
+            logger.info("Clearing documents folder before starting scraping")
+            self.document_processor.clear_documents_folder()
             
         with sync_playwright() as playwright:
             try:

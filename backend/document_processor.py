@@ -24,6 +24,29 @@ class DocumentProcessor:
         self.documents_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "documents")
         os.makedirs(self.documents_dir, exist_ok=True)
     
+    def clear_documents_folder(self):
+        """
+        Clear all files in the documents folder
+        """
+        try:
+            # Check if the directory exists
+            if os.path.exists(self.documents_dir):
+                # Get a list of all files in the directory
+                files = [f for f in os.listdir(self.documents_dir) 
+                         if os.path.isfile(os.path.join(self.documents_dir, f))]
+                
+                # Log the number of files to be removed
+                logger.info(f"Clearing {len(files)} files from documents folder")
+                
+                # Remove each file
+                for file in files:
+                    file_path = os.path.join(self.documents_dir, file)
+                    os.remove(file_path)
+                
+                logger.info("Documents folder cleared successfully")
+        except Exception as e:
+            logger.error(f"Error clearing documents folder: {str(e)}")
+    
     def get_values_for_year_period(
         self, 
         year_period: str, 

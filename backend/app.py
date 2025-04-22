@@ -12,6 +12,18 @@ import base64
 from pathlib import Path
 from dotenv import load_dotenv
 
+# Add CORS headers
+class CORSMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response['Access-Control-Allow-Origin'] = '*' 
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+        response['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+        return response
+
 dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 if dotenv_path.exists():
     load_dotenv(dotenv_path)
@@ -127,7 +139,8 @@ def process_image_api(request):
                 scraper.run(
                     property_details=formatted_property,
                     headless=True,  # Run in headless mode for API
-                    image_callback=image_callback
+                    image_callback=image_callback,
+                    clear_documents=True  # Clear documents folder before scraping
                 )
                 logger.info("RTCScraper completed successfully")
                 
