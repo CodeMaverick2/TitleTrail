@@ -297,4 +297,4 @@ class RTCScraper:
 # Main entry point
 if __name__ == "__main__":
     scrapper = RTCScraper()
-    scrapper.run(headless=false)
+    scrapper.run(headless=False)
