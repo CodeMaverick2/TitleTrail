@@ -4,7 +4,6 @@ import logging
 import re
 from typing import Dict, Optional, List, Any
 from openai import OpenAI
-from decouple import config
 
 # Setup logging
 logging.basicConfig(
@@ -24,15 +23,12 @@ class LandRecordImageProcessor:
     """
     
     def __init__(self):
-        # Initialize OpenAI client
-        api_key = config('OPENAI_API_KEY', default=None)
+        # Initialize OpenAI client using environment variable
+        api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OpenAI API key is required. Set OPENAI_API_KEY in your environment variables.")
         
-        # Set the API key in the environment
-        os.environ["OPENAI_API_KEY"] = api_key
-        
-        # Initialize the client without passing any parameters
+        # Initialize the client which will use the API key from environment
         self.client = OpenAI()
         logger.info("OpenAI client initialized using environment variables")
         
@@ -202,9 +198,9 @@ class LandRecordImageProcessor:
             Survey Number: 22
             Surnoc: *
             Hissa: 1
-            Village: Devanahalli
+            Village: Devenahalli
             Hobli: Kasaba
-            Taluk: Devenahalli
+            Taluk: Devanahalli
             District: Bangalore Rural
             Owner Name: John Doe, Jane Smith
             Owner Details: John Doe (Father: James Doe, Share: 50%), Jane Smith (Husband: Mike Smith, Share: 50%)
@@ -376,6 +372,17 @@ class LandRecordImageProcessor:
             result["Surnoc"] = "*"
             logger.info("Set default value '*' for Surnoc")
         
+        # Correct common spelling errors in place names
+        if result["Village"] == "Devanahalli" and result["Taluk"] == "Devanahalli":
+            # If both are the same, the village is likely Devenahalli (with an 'e')
+            result["Village"] = "Devenahalli"
+            logger.info(f"Corrected Village name from 'Devanahalli' to 'Devenahalli'")
+        
+        # If Taluk is Devenahalli (with an 'e'), correct it to Devanahalli (with an 'a')
+        if result["Taluk"] == "Devenahalli":
+            result["Taluk"] = "Devanahalli"
+            logger.info(f"Corrected Taluk name from 'Devenahalli' to 'Devanahalli'")
+        
         return result
 
     def process_image_bytes(self, image_bytes: bytes) -> Dict[str, Any]:
@@ -425,9 +432,9 @@ class LandRecordImageProcessor:
             Survey Number: 22
             Surnoc: *
             Hissa: 1
-            Village: Devanahalli
+            Village: Devenahalli
             Hobli: Kasaba
-            Taluk: Devenahalli
+            Taluk: Devanahalli
             District: Bangalore Rural
             Owner Name: John Doe, Jane Smith
             Owner Details: John Doe (Father: James Doe, Share: 50%), Jane Smith (Husband: Mike Smith, Share: 50%)

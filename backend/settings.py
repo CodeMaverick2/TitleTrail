@@ -2,10 +2,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
 BASE_DIR = Path(__file__).resolve().parent
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+SECRET_KEY = 'development'
 
 ALLOWED_HOSTS = ['*']
 
@@ -18,7 +20,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'titletrail',  # Our custom app
+    'titletrail',
 ]
 
 MIDDLEWARE = [
@@ -49,16 +51,20 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'app.application'
+db_name = os.environ.get('DB_NAME')
+db_user = os.environ.get('DB_USER')
+db_password = os.environ.get('DB_PASSWORD')
+db_host = os.environ.get('DB_HOST', 'localhost')
+db_port = os.environ.get('DB_PORT', '5432')
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'title'),
-        'USER': os.environ.get('DB_USER', 'tejas'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'Tejas@sst4'),
-        'HOST': os.environ.get('DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'NAME': db_name,
+        'USER': db_user,
+        'PASSWORD': db_password,
+        'HOST': db_host,
+        'PORT': db_port,
     }
 }
 

@@ -9,6 +9,13 @@ from django.core.wsgi import get_wsgi_application
 from django.conf.urls.static import static
 import tempfile
 import base64
+from pathlib import Path
+from dotenv import load_dotenv
+
+dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+    print(f"APP: Loaded environment variables from {dotenv_path}")
 
 from image_processor import LandRecordImageProcessor
 from scraper import RTCScraper

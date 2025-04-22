@@ -4,6 +4,13 @@ import django
 import logging
 from typing import Dict, Any, List, Optional, Tuple, Union
 import base64
+from pathlib import Path
+from dotenv import load_dotenv
+
+dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+    print(f"DB_API: Loaded environment variables from {dotenv_path}")
 
 # Setup logging
 logging.basicConfig(

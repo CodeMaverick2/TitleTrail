@@ -3,7 +3,14 @@ import sys
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 import logging
+from pathlib import Path
 from dotenv import load_dotenv
+
+# Load environment variables from .env file in the parent directory (project root)
+dotenv_path = Path(__file__).resolve().parent.parent / '.env'
+if dotenv_path.exists():
+    load_dotenv(dotenv_path)
+    print(f"INIT_DB: Loaded environment variables from {dotenv_path}")
 
 # Setup logging
 logging.basicConfig(
@@ -16,19 +23,16 @@ logging.basicConfig(
 )
 logger = logging.getLogger("InitDB")
 
-# Load environment variables
-load_dotenv('local.env')
-
 def init_database():
     """
     Initialize the PostgreSQL database
     """
     # Get database connection parameters from environment variables
-    db_name = os.environ.get('DB_NAME', 'title')
-    db_user = os.environ.get('DB_USER', 'tejas')  # Default to your username
-    db_password = os.environ.get('DB_PASSWORD', 'Tejas@sst4')  # Use the password from local.env
-    db_host = os.environ.get('DB_HOST', 'localhost')
-    db_port = os.environ.get('DB_PORT', '5432')
+    db_name = os.environ.get('DB_NAME') or os.environ.get('DATABASE_NAME')
+    db_user = os.environ.get('DB_USER') or os.environ.get('DATABASE_USER')
+    db_password = os.environ.get('DB_PASSWORD') or os.environ.get('DATABASE_PASSWORD')
+    db_host = os.environ.get('DB_HOST', 'localhost') or os.environ.get('DATABASE_HOST', 'localhost')
+    db_port = os.environ.get('DB_PORT', '5432') or os.environ.get('DATABASE_PORT', '5432')
     
     # Print the database connection parameters for debugging
     logger.info(f"Database connection parameters:")
